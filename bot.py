@@ -1,7 +1,7 @@
 import config
 import logging
 import parsing
-from telebot import types
+#from telebot import types
 from aiogram import Bot, Dispatcher, executor, types
 
 # log level
@@ -50,7 +50,7 @@ async def operations ( message ):
 			await bot.send_message( message.chat.id, 'Выберите билет, или напишите номер в чат', reply_markup = markup )
 
 		elif message.text == 'Пройти экзамен 📝':
-			print ('examing')
+			await passBilet ( exam = True, chatID = message.chat.id )
 		elif message.text == 'Статистика 📊':
 			print ('lol')
 		else:
@@ -63,8 +63,16 @@ async def sendQuestion( question, chatID ):
 	nowQuestion = question
 
 	markup = types.InlineKeyboardMarkup( row_width = 2 ) 
+	tooLongAns = False
 	for i in range ( len ( question.answers ) ) :
-		markup.add( types.InlineKeyboardButton( question.answers[i], callback_data=( 'answer' + str( i ) ) ) )
+		# print ( tooLongAns )
+		if ( len ( question.answers[i] ) > 40 and not tooLongAns ) :
+			tooLongAns = True
+			# print ( len ( question.answers[i] ))
+			question.text += "\n\nВарианты ответа:\n\n"
+			for j in range ( len ( question.answers ) ) :
+				question.text += ( str ( j + 1 ) + ". " + question.answers[j] + '\n')
+		markup.add( types.InlineKeyboardButton( str ( i + 1 ) + '. ' + question.answers[i], callback_data=( 'answer' + str( i ) ) ) )
 
 	if question.img:
 		img = open( '1.jpg' , mode='rb' )
@@ -90,9 +98,11 @@ async def passBilet ( biletNum = -1, theme = None, exam = False, chatID = None )
 
 	if questNumber == 20:
 		if errs > 2 :
-			await bot.send_message( chatID, 'К сожелению в не сдали этот тест( . \nКоличество ошибок: {0}. \nВсего вопросов: 20. Правильность ответов: {1}'.format( errs, ( errs/20 ) ) )
+			await bot.send_message( chatID, 'К сожелению в не сдали этот тест( . \nКоличество ошибок: {0}. \nВсего вопросов: 20. Правильность ответов: {1}%'.format( errs, ( 100 - ( errs / 20 * 100 ) ) ) )
+		elif errs == 0: 
+			await bot.send_message( chatID, '🎉🎉🎊🎊Ейс!!! Это взрыв, поздравляем !!!🎉🎉🎊🎊')
 		else :
-			await bot.send_message( chatID, 'Поздравляю вы сдали тест ! \nКоличество ошибок: {0}. \nВсего вопросов: 20. Правильность ответов: {1}'.format( errs, ( errs/20 ) ) )
+			await bot.send_message( chatID, 'Поздравляю, вы сдали тест ! \nКоличество ошибок: {0}. \nВсего вопросов: 20. Правильность ответов: {1}%'.format( errs, ( 100 - ( errs / 20 * 100 ) ) ) )
 		questionsList = None
 		questNumber = 0
 		errs = 0
@@ -104,9 +114,11 @@ async def passBilet ( biletNum = -1, theme = None, exam = False, chatID = None )
 	if questionsList == None:
 		questionsList = parsing.getBiletOrTheme( bilet = biletNum, theme = theme, exam = exam )
 		
-	
-	await sendQuestion ( parsing.getQuestion( number = questNumber, qusestionsList = questionsList ), chatID = chatID )
-	print (questNumber)
+	question = parsing.getQuestion( number = questNumber, qusestionsList = questionsList )
+	question.text = str( questNumber + 1 ) + '/20 \n' + question.text
+
+	await sendQuestion ( question, chatID = chatID )
+	# print (questNumber)
 	questNumber += 1
 
 @dp.callback_query_handler()
@@ -127,14 +139,13 @@ async def process_callback(call):
 
 					if mode == 'pass':
 						global makedError 
-						# print ( makedError )
 						if not makedError:
-							
-							makedError = False
-							print ( makedError )
 							await bot.delete_message( message_id=call.message.message_id, chat_id=call.message.chat.id ) 
 
-						await passBilet( chatID =  call.message.chat.id, biletNum = 1  )
+					makedError = False
+					# print ( makedError )
+
+					await passBilet( chatID =  call.message.chat.id, biletNum = 1  )
 
 				else :
 					await bot.answer_callback_query(callback_query_id=call.id, show_alert=False, text="❌ Ошибка! ❌")

@@ -57,9 +57,3 @@ def getQuestion ( number = 1, bilet = -1, theme = None, qusestionsList = False )
             question.correctAnswerI = index
    
     return question 
-
-# for i in range( 1, 2 ):
-#     print( str ( getQuestion( number = i, bilet = 1 ).correctAnswerI + 1 ) )
-
-
-# print (len ( questionsLi ))
